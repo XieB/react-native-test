@@ -1,72 +1,147 @@
 import React, { Component } from 'react';
-import { AppRegistry, FlatList, StyleSheet, Text, View,Button,TouchableOpacity } from 'react-native';
+import {
+    StyleSheet,
+    Text,
+    View,
+    ActivityIndicator,
+    ListView,
+} from 'react-native';
 
+import {PullList} from 'react-native-pull';
 import {homeList} from "./axios";
 
-export default class FlatListBasics extends Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            list: [
-
-            ],
-        };
-        this.getRemote = this.getRemote.bind(this);
-    }
+export default class extends Component {
 
     static navigationOptions = {
-        title: '首页',
+        title: '段子',
     };
 
-    getRemote(){
+    constructor(props) {
+        super(props);
+        this.dataSource = [];
+        this.state = {
+            list: (new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2})).cloneWithRows(this.dataSource),
+        };
+        // this.renderHeader = this.renderHeader.bind(this);
+        this.renderRow = this.renderRow.bind(this);
+        this.renderFooter = this.renderFooter.bind(this);
+        this.loadMore = this.loadMore.bind(this);
+        this.topIndicatorRender = this.topIndicatorRender.bind(this);
+        this.onPullRelease = this.onPullRelease.bind(this);
+        // this.loadMore();
+    }
+
+    onPullRelease(resolve) {
         homeList().then(res=>{
-            this.setState({list:res});
+            this.dataSource = [];
+            this.dataSource = this.dataSource.concat(res);
+            this.setState({
+                list: this.state.list.cloneWithRows(this.dataSource)
+            });
+            resolve();
         }).catch();
     }
 
-    componentWillMount(){
-        homeList().then(res=>{
-            this.setState({list:res});
-        }).catch();
+    topIndicatorRender(pulling, pullok, pullrelease) {
+        const hide = {position: 'absolute', left: -10000};
+        const show = {position: 'relative', left: 0};
+        setTimeout(() => {
+            if (pulling) {
+                this.txtPulling && this.txtPulling.setNativeProps({style: show});
+                this.txtPullok && this.txtPullok.setNativeProps({style: hide});
+                this.txtPullrelease && this.txtPullrelease.setNativeProps({style: hide});
+            } else if (pullok) {
+                this.txtPulling && this.txtPulling.setNativeProps({style: hide});
+                this.txtPullok && this.txtPullok.setNativeProps({style: show});
+                this.txtPullrelease && this.txtPullrelease.setNativeProps({style: hide});
+            } else if (pullrelease) {
+                this.txtPulling && this.txtPulling.setNativeProps({style: hide});
+                this.txtPullok && this.txtPullok.setNativeProps({style: hide});
+                this.txtPullrelease && this.txtPullrelease.setNativeProps({style: show});
+            }
+        }, 1);
+        return (
+            <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 60}}>
+                <ActivityIndicator size="small" color="tomato" />
+                <Text ref={(c) => {this.txtPulling = c;}}>松开加载...</Text>
+                <Text ref={(c) => {this.txtPullok = c;}}>松开加载...</Text>
+                <Text ref={(c) => {this.txtPullrelease = c;}}>加载中...</Text>
+            </View>
+        );
     }
-
 
     render() {
         return (
             <View style={styles.container}>
-                <TouchableOpacity onPress={this.getRemote}>
-                    <Text style={styles.center}>刷新</Text>
-                </TouchableOpacity>
-                <FlatList
-                    data={this.state.list}
-                    renderItem={({item}) => <Text style={styles.item}>{item.content}</Text>}
+                <PullList
+                    style={{}}
+                    onPullRelease={this.onPullRelease} topIndicatorRender={this.topIndicatorRender} topIndicatorHeight={60}
+                    // renderHeader={this.renderHeader}
+                    dataSource={this.state.list}
+                    pageSize={5}
+                    initialListSize={5}
+                    renderRow={this.renderRow}
+                    onEndReached={this.loadMore}
+                    onEndReachedThreshold={60}
+                    renderFooter={this.renderFooter}
                 />
             </View>
         );
     }
+
+    // renderHeader() {
+    //     return (
+    //         <View style={{height: 50, backgroundColor: '#eeeeee', alignItems: 'center', justifyContent: 'center'}}>
+    //             <Text style={{fontWeight: 'bold',fontSize:22,}}>段子手</Text>
+    //         </View>
+    //     );
+    // }
+
+    renderRow(item, sectionID, rowID, highlightRow) {
+        return (
+            <View style={styles.ViewLine}>
+                <Text style={styles.TextLine}>{item.content}</Text>
+            </View>
+        );
+    }
+
+    renderFooter() {
+        if(this.state.nomore) {
+            return null;
+        }
+        return (
+            <View style={{height: 40,alignItems:'center',justifyContent: 'center',}}>
+                <ActivityIndicator color="tomato"/>
+            </View>
+        );
+    }
+
+    loadMore() {
+        homeList().then(res=>{
+            this.dataSource = this.dataSource.concat(res);
+            this.setState({
+                list: this.state.list.cloneWithRows(this.dataSource)
+            });
+        })
+    }
+
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: 22
+        flexDirection: 'column',
+        backgroundColor: '#F5FCFF',
     },
-    item: {
-        padding: 10,
-        fontSize: 18,
-        // height: 44,
-        borderBottomWidth: 1,
-        borderBottomColor : '#ddd',
-        borderStyle : 'dashed',
+    TextLine : {
+        paddingTop:10,
+        paddingBottom:10,
+        paddingLeft:10,
+        paddingRight:10,
+        fontSize:18,
     },
-    center : {
-        textAlign:'center',
-        backgroundColor: 'dodgerblue',
-        lineHeight : 44,
-        fontSize:20,
-        color : '#fff',
+    ViewLine : {
+        borderBottomWidth:1,
+        borderColor:'#eee',
     }
-})
-
-// skip this line if using Create React Native App
-AppRegistry.registerComponent('AwesomeProject', () => FlatListBasics);
+});
